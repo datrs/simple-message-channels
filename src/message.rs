@@ -1,5 +1,6 @@
 use async_std::io::Error;
 
+/// A SMC message.
 #[derive(Debug)]
 pub struct Message {
     pub channel: u64,
@@ -8,6 +9,7 @@ pub struct Message {
 }
 
 impl Message {
+    /// Create a new message.
     pub fn new(channel: u64, typ: u8, message: Vec<u8>) -> Message {
         Message {
             channel,
@@ -16,10 +18,18 @@ impl Message {
         }
     }
 
+    /// Decode a message from `buf` (bytes).
+    ///
+    /// Note: `buf` has to have a valid length, and the length
+    /// prefix has to be removed already.
     pub fn from_buf(buf: &[u8]) -> Result<Message, Error> {
         decode_message(buf)
     }
 
+    /// Encode a message body into a buffer.
+    ///
+    /// The result can be sent directly over any medium.
+    /// It is length-prefixed, so chunking should not be an issue.
     pub fn encode(&self) -> Vec<u8> {
         encode_message(self)
     }

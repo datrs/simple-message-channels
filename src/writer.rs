@@ -3,7 +3,7 @@ use async_std::io::{BufWriter, Error};
 use async_std::prelude::*;
 use futures::io::AsyncWrite;
 
-/// A message writer.
+/// A writer for SMC messages.
 ///
 /// Consumes an [`futures::io::AsyncWrite`] to which messages will be written.
 pub struct Writer<W> {
@@ -33,7 +33,7 @@ where
 
     /// Send a batch of messages.
     ///
-    /// This works like [`send`] but flushes after all messages are written.
+    /// This works like [`Writer::send`] but flushes after all messages are written.
     pub async fn send_batch(&mut self, messages: Vec<Message>) -> Result<(), Error> {
         for message in &messages {
             let buf = message.encode();

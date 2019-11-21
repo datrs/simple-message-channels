@@ -9,7 +9,7 @@ use std::pin::Pin;
 
 use crate::Message;
 
-/// Reader for simple message channels.
+/// A reader for SMC messages.
 ///
 /// Takes any [`futures::io::AsyncRead`] and is a
 /// [`async_std::stream::Stream`] of [`Message`]s.

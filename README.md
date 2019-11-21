@@ -4,6 +4,8 @@ Simple streamable state machine that implements a useful channel, message-type, 
 
 A port of the JavaScript module [simple-message-channels](https://github.com/mafintosh/simple-message-channels) to Rust. Original module by [mafintosh](https://github.com/mafintosh).
 
+* [Docs](https://docs.rs/simple-message-channels)
+
 ## Examples
 
 See [examples/](examples/).
