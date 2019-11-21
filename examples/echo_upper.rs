@@ -21,14 +21,14 @@ async fn echo() -> Result<(), io::Error> {
         let resp = Message {
             channel: msg.channel,
             typ: msg.typ + 1,
-            message: to_upper(&msg.message)
+            message: to_upper(&msg.message),
         };
         writer.send(resp).await?;
     }
     Ok(())
 }
 
-fn to_upper (bytes: &[u8]) -> Vec<u8> {
+fn to_upper(bytes: &[u8]) -> Vec<u8> {
     let text = String::from_utf8(bytes.to_vec()).unwrap();
     text.to_uppercase().as_bytes().to_vec()
 }

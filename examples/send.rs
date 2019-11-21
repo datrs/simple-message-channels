@@ -12,7 +12,7 @@ async fn send() -> io::Result<()> {
         let message = Message::new(i, 1, "hi".as_bytes().to_vec());
         print_msg(&message);
         writer.send(message).await?;
-    };
+    }
     Ok(())
 }
 

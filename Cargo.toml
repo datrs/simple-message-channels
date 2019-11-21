@@ -3,15 +3,12 @@ name = "simple-message-channels"
 version = "0.0.1"
 authors = ["Franz Heinzmann (Frando) <frando@unbiskant.org>"]
 edition = "2018"
-
 license = "MIT"
 repository = "https://github.com/datrs/simple-message-channels"
 documentation = "https://docs.rs/simple-message-channels"
 description = "Simple binary protocol with a channel, type, message scheme"
 keywords = ["protocol", "datrs"]
-authors = ["Franz Heinzmann <frando@unbiskant.org>"]
 readme = "README.md"
-edition = "2018"
 
 [dependencies]
 async-std = { version = "1.0.1", features = ["unstable"] }
