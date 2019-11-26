@@ -1,13 +1,15 @@
 use async_std::future::Future;
-use async_std::io::{BufReader, Error};
+use async_std::io::{BufReader, Error, ErrorKind};
 use async_std::prelude::*;
 use async_std::stream::Stream;
 use async_std::task::{Context, Poll};
 use futures::io::AsyncRead;
-use futures::pin_mut;
+use futures::future::FutureExt;
 use std::pin::Pin;
 
 use crate::Message;
+
+const MAX_MESSAGE_SIZE : u64 = 1024 * 1024 * 8;
 
 /// A reader for SMC messages.
 ///
@@ -26,17 +28,19 @@ use crate::Message;
 /// }
 /// ```
 pub struct Reader<R> {
-    inner: BufReader<R>,
+    future: Pin<Box<dyn Future<Output = Result<(Message, BufReader<R>), Error>>>>,
+    finished: bool
 }
 
 impl<R> Reader<R>
 where
-    R: AsyncRead,
+    R: AsyncRead + Send + Unpin + 'static
 {
     /// Create a new message reader from any [`async_std::io::Read`].
     pub fn new(reader: R) -> Self {
         Self {
-            inner: BufReader::new(reader),
+            future: decode(BufReader::new(reader)).boxed(),
+            finished: false
         }
     }
 }
@@ -44,46 +48,53 @@ where
 // Proxy to the internal BufReader and decode messages.
 impl<R> Stream for Reader<R>
 where
-    R: AsyncRead + Send + Unpin,
+    R: AsyncRead + Send + Unpin + 'static,
 {
     type Item = Result<Message, Error>;
     fn poll_next(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Message, Error>>> {
-        // TODO: I am very unsure if this is correct.
-        // What happens here is I call the decode function, which
-        // takes the reader and returns a future. The future is complete
-        // when a full message has been read from the reader.
-        // It seems all to work fine, however I am not sure about
-        // the intrinsics: What happens if poll_next is called again?
-        // I tried moving the future onto the Reader struct and replacing
-        // it after being Ready, but couldn't get it to work with all the Pin
-        // foobar.
-        let fut = decode(&mut self.inner);
-        pin_mut!(fut);
-        match fut.poll(cx) {
+        if self.finished {
+            return Poll::Ready(None);
+        }
+        match self.future.poll_unpin(cx) {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(result) => Poll::Ready(Some(result)),
+            Poll::Ready(result) => {
+                match result {
+                    Ok((message, reader)) => {
+                        // Re-init the future.
+                        self.future = decode(reader).boxed();
+                        Poll::Ready(Some(Ok(message)))
+                    },
+                    Err(error) => {
+                        self.finished = true;
+                        Poll::Ready(Some(Err(error)))
+                    }
+                }
+            }
         }
     }
 }
 
 /// Decode a single message from a reader.
-pub async fn decode<'a, R>(reader: &mut R) -> Result<Message, Error>
+pub async fn decode<'a, R>(mut reader: R) -> Result<(Message, R), Error>
 where
     R: AsyncRead + Unpin + 'a,
 {
-    // Read initial varint (message length).
     let mut varint: u64 = 0;
     let mut factor = 1;
     let mut headerbuf = vec![0u8; 1];
+    // Read initial varint (message length).
     loop {
         reader.read_exact(&mut headerbuf).await?;
         let byte = headerbuf[0];
         varint = varint + (byte as u64 & 127) * factor;
         if byte < 128 {
             break;
+        }
+        if varint > MAX_MESSAGE_SIZE {
+            return Err(Error::new(ErrorKind::InvalidInput, "Message too long"));
         }
         factor = factor * 128;
     }
@@ -92,5 +103,5 @@ where
     let mut messagebuf = vec![0u8; varint as usize];
     reader.read_exact(&mut messagebuf).await?;
     let message = Message::from_buf(&messagebuf)?;
-    Ok(message)
+    Ok((message, reader))
 }
