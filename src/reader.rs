@@ -1,10 +1,8 @@
-use async_std::future::Future;
-use async_std::io::{BufReader, Error, ErrorKind};
-use async_std::prelude::*;
-use async_std::stream::Stream;
-use async_std::task::{Context, Poll};
-use futures::future::FutureExt;
-use futures::io::AsyncRead;
+use std::io::{Error, ErrorKind};
+use futures::task::{Context, Poll};
+use futures::future::{Future, FutureExt};
+use futures::io::{AsyncRead, AsyncReadExt, BufReader};
+use futures::stream::Stream;
 use std::pin::Pin;
 
 use crate::{Message, MAX_MESSAGE_SIZE};
@@ -34,10 +32,10 @@ impl<R> Reader<R>
 where
     R: AsyncRead + Send + Unpin + 'static,
 {
-    /// Create a new message reader from any [`async_std::io::Read`].
+    /// Create a new message reader from any [`futures::io::AsyncRead`].
     pub fn new(reader: R) -> Self {
         Self {
-            future: decode(BufReader::new(reader)).boxed(),
+            future: decoder(BufReader::new(reader)).boxed(),
             finished: false,
         }
     }
@@ -62,7 +60,7 @@ where
                 match result {
                     Ok((message, reader)) => {
                         // Re-init the future.
-                        self.future = decode(reader).boxed();
+                        self.future = decoder(reader).boxed();
                         Poll::Ready(Some(Ok(message)))
                     }
                     Err(error) => {
@@ -75,8 +73,10 @@ where
     }
 }
 
-/// Decode a single message from a reader.
-pub async fn decode<'a, R>(mut reader: R) -> Result<(Message, R), Error>
+/// Decode a single message from a BufReader.
+///
+/// Returns either an error or both the message and the BufReader.
+pub async fn decoder<'a, R>(mut reader: BufReader<R>) -> Result<(Message, BufReader<R>), Error>
 where
     R: AsyncRead + Send + Unpin + 'static,
 {

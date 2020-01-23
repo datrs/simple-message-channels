@@ -1,7 +1,6 @@
+use std::io::Error;
+use futures::io::{AsyncWrite,AsyncWriteExt,BufWriter};
 use crate::Message;
-use async_std::io::{BufWriter, Error};
-use async_std::prelude::*;
-use futures::io::AsyncWrite;
 
 /// A writer for SMC messages.
 ///
