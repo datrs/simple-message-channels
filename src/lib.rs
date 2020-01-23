@@ -17,4 +17,9 @@ pub use message::Message;
 pub use reader::Reader;
 pub use writer::Writer;
 
+/// The max message size (in bytes)
+///
+/// The limit is arbitrary, and taken from the JavaScript implementation.
+/// (see: https://github.com/mafintosh/simple-message-channels/blob/master/index.js)
+/// TODO: This should be configurable.
 pub const MAX_MESSAGE_SIZE: u64 = 1024 * 1024 * 8;
