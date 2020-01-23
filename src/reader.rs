@@ -3,13 +3,13 @@ use async_std::io::{BufReader, Error, ErrorKind};
 use async_std::prelude::*;
 use async_std::stream::Stream;
 use async_std::task::{Context, Poll};
-use futures::io::AsyncRead;
 use futures::future::FutureExt;
+use futures::io::AsyncRead;
 use std::pin::Pin;
 
 use crate::Message;
 
-const MAX_MESSAGE_SIZE : u64 = 1024 * 1024 * 8;
+const MAX_MESSAGE_SIZE: u64 = 1024 * 1024 * 8;
 
 /// A reader for SMC messages.
 ///
@@ -28,19 +28,19 @@ const MAX_MESSAGE_SIZE : u64 = 1024 * 1024 * 8;
 /// }
 /// ```
 pub struct Reader<R> {
-    future: Pin<Box<dyn Future<Output = Result<(Message, BufReader<R>), Error>>>>,
-    finished: bool
+    future: Pin<Box<dyn Future<Output = Result<(Message, BufReader<R>), Error>> + Send>>,
+    finished: bool,
 }
 
 impl<R> Reader<R>
 where
-    R: AsyncRead + Send + Unpin + 'static
+    R: AsyncRead + Send + Unpin + 'static,
 {
     /// Create a new message reader from any [`async_std::io::Read`].
     pub fn new(reader: R) -> Self {
         Self {
             future: decode(BufReader::new(reader)).boxed(),
-            finished: false
+            finished: false,
         }
     }
 }
@@ -66,7 +66,7 @@ where
                         // Re-init the future.
                         self.future = decode(reader).boxed();
                         Poll::Ready(Some(Ok(message)))
-                    },
+                    }
                     Err(error) => {
                         self.finished = true;
                         Poll::Ready(Some(Err(error)))
@@ -80,7 +80,7 @@ where
 /// Decode a single message from a reader.
 pub async fn decode<'a, R>(mut reader: R) -> Result<(Message, R), Error>
 where
-    R: AsyncRead + Unpin + 'a,
+    R: AsyncRead + Send + Unpin + 'static,
 {
     let mut varint: u64 = 0;
     let mut factor = 1;
