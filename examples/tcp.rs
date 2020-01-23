@@ -45,7 +45,7 @@ fn main() {
             _ => panic!(usage()),
         };
         match result {
-            Err(e) => eprintln!("Error: {:?}", e),
+            Err(e) => eprintln!("Error: {}", e),
             Ok(()) => eprintln!("Ok."),
         }
     });
@@ -101,6 +101,7 @@ async fn handle_outgoing(stream: TcpStream) -> Result<()> {
         let msg = msg?;
         eprintln!("received: {}", format_msg(&msg));
     }
+
     Ok(())
 }
 
