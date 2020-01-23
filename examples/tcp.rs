@@ -18,10 +18,11 @@ use async_std::net::{TcpListener, TcpStream};
 use async_std::prelude::*;
 use async_std::task;
 use async_std::task::{Context, Poll};
-use futures::io::{AsyncRead, AsyncWrite, Result};
+use futures::io::{AsyncRead, AsyncWrite};
+use futures::stream::TryStreamExt;
 use simple_message_channels::{Message, Reader, Writer};
 use std::env;
-use std::io;
+use std::io::{ErrorKind, Result};
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -44,9 +45,8 @@ fn main() {
             "client" => tcp_client(address).await,
             _ => panic!(usage()),
         };
-        match result {
-            Err(e) => eprintln!("Error: {}", e),
-            Ok(()) => eprintln!("Ok."),
+        if let Err(e) = result {
+            eprintln!("error: {}", e);
         }
     });
 }
@@ -62,8 +62,12 @@ async fn tcp_server(address: String) -> Result<()> {
         eprintln!("new connection from {}", peer_addr);
         task::spawn(async move {
             match handle_incoming(stream).await {
-                Ok(()) => eprintln!("connection from {} closed without error", peer_addr),
-                Err(e) => eprintln!("connection from {} closed with error: {}", peer_addr, e),
+                Err(ref e) if e.kind() != ErrorKind::UnexpectedEof => {
+                    eprintln!("connection closed from {} with error: {}", peer_addr, e);
+                },
+                Err(_) | Ok(()) => {
+                    eprintln!("connection closed from {}", peer_addr);
+                }
             }
         });
     }
@@ -78,8 +82,7 @@ async fn tcp_client(address: String) -> Result<()> {
 
 async fn handle_incoming(stream: TcpStream) -> Result<()> {
     let (mut reader, mut writer) = create_from_stream(stream);
-    while let Some(msg) = reader.next().await {
-        let msg = msg?;
+    while let Some(msg) = reader.try_next().await? {
         eprintln!("received: {}", format_msg(&msg));
         let resp = Message {
             channel: msg.channel,
@@ -97,8 +100,7 @@ async fn handle_outgoing(stream: TcpStream) -> Result<()> {
     let hello_msg = Message::new(1, 1, "hi".as_bytes().to_vec());
     writer.send(hello_msg).await?;
 
-    while let Some(msg) = reader.next().await {
-        let msg = msg?;
+    while let Some(msg) = reader.try_next().await? {
         eprintln!("received: {}", format_msg(&msg));
     }
 
@@ -122,29 +124,25 @@ fn format_msg(msg: &Message) -> String {
 }
 
 fn to_upper(bytes: &[u8]) -> Vec<u8> {
-    let text = String::from_utf8(bytes.to_vec()).unwrap();
-    text.to_uppercase().as_bytes().to_vec()
+    let string = String::from_utf8(bytes.to_vec()).unwrap();
+    string.to_uppercase().as_bytes().to_vec()
 }
 
 #[derive(Clone)]
 struct CloneableStream(Arc<TcpStream>);
 impl AsyncRead for CloneableStream {
-    fn poll_read(
-        self: Pin<&mut Self>,
-        cx: &mut Context,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context, buf: &mut [u8]) -> Poll<Result<usize>> {
         Pin::new(&mut &*self.0).poll_read(cx, buf)
     }
 }
 impl AsyncWrite for CloneableStream {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<Result<usize>> {
         Pin::new(&mut &*self.0).poll_write(cx, buf)
     }
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<()>> {
         Pin::new(&mut &*self.0).poll_flush(cx)
     }
-    fn poll_close(self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<()>> {
         Pin::new(&mut &*self.0).poll_close(cx)
     }
 }
