@@ -1,4 +1,5 @@
-use async_std::io::Error;
+use crate::MAX_MESSAGE_SIZE;
+use async_std::io::{Error, ErrorKind};
 
 /// A SMC message.
 #[derive(Debug)]
@@ -30,7 +31,7 @@ impl Message {
     ///
     /// The result can be sent directly over any medium.
     /// It is length-prefixed, so chunking should not be an issue.
-    pub fn encode(&self) -> Vec<u8> {
+    pub fn encode(&self) -> Result<Vec<u8>, Error> {
         encode_message(self)
     }
 }
@@ -54,17 +55,22 @@ pub fn decode_message(buf: &[u8]) -> Result<Message, Error> {
 }
 
 /// Encode a message body into a buffer.
-pub fn encode_message(msg: &Message) -> Vec<u8> {
+pub fn encode_message(msg: &Message) -> Result<Vec<u8>, Error> {
     let header = msg.channel << 4 | msg.typ as u64;
     let len_header = varinteger::length(header);
     let len_body = msg.message.len() + len_header;
     let len_prefix = varinteger::length(len_body as u64);
+    let len = len_body + len_prefix;
 
-    let mut buf = vec![0; len_body + len_prefix];
+    if len as u64 > MAX_MESSAGE_SIZE {
+        return Err(Error::new(ErrorKind::InvalidInput, "Message too long"));
+    }
+
+    let mut buf = vec![0; len];
 
     varinteger::encode(len_body as u64, &mut buf[..len_prefix]);
     let end = len_prefix + len_header;
     varinteger::encode(header, &mut buf[len_prefix..end]);
     &mut buf[end..].copy_from_slice(&msg.message);
-    buf
+    Ok(buf)
 }

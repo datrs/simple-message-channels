@@ -16,3 +16,5 @@ mod writer;
 pub use message::Message;
 pub use reader::Reader;
 pub use writer::Writer;
+
+pub const MAX_MESSAGE_SIZE: u64 = 1024 * 1024 * 8;

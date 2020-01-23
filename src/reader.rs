@@ -7,9 +7,7 @@ use futures::future::FutureExt;
 use futures::io::AsyncRead;
 use std::pin::Pin;
 
-use crate::Message;
-
-const MAX_MESSAGE_SIZE: u64 = 1024 * 1024 * 8;
+use crate::{Message, MAX_MESSAGE_SIZE};
 
 /// A reader for SMC messages.
 ///

@@ -25,7 +25,7 @@ where
     ///
     /// This encodes the message, writes it and flushes the writer.
     pub async fn send(&mut self, message: Message) -> Result<(), Error> {
-        let buf = message.encode();
+        let buf = message.encode()?;
         self.writer.write_all(&buf).await?;
         self.writer.flush().await?;
         Ok(())
@@ -36,7 +36,7 @@ where
     /// This works like [`Writer::send`] but flushes after all messages are written.
     pub async fn send_batch(&mut self, messages: Vec<Message>) -> Result<(), Error> {
         for message in &messages {
-            let buf = message.encode();
+            let buf = message.encode()?;
             self.writer.write_all(&buf).await?;
         }
         self.writer.flush().await?;
