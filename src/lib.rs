@@ -9,10 +9,12 @@
 //! This module is a port of the JavaScript module [of the same
 //! name](https://github.com/mafintosh/simple-message-channels/).
 
+mod cipher;
 mod message;
 mod reader;
 mod writer;
 
+pub use cipher::Cipher;
 pub use message::Message;
 pub use reader::Reader;
 pub use writer::Writer;

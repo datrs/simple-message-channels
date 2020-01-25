@@ -11,6 +11,7 @@ keywords = ["protocol", "datrs"]
 readme = "README.md"
 
 [dependencies]
-async-std = { version = "1.0.1", features = ["unstable"] }
+async-std = { version = "1.4.0", features = ["unstable"] }
 varinteger = "1.0.6"
 futures = "0.3.1"
+salsa20 = "0.4.0"

@@ -1,11 +1,15 @@
-use std::io::{Error, ErrorKind};
-use futures::task::{Context, Poll};
 use futures::future::{Future, FutureExt};
 use futures::io::{AsyncRead, AsyncReadExt, BufReader};
 use futures::stream::Stream;
+use futures::task::{Context, Poll};
+use std::io::{Error, ErrorKind};
 use std::pin::Pin;
+use std::sync::{Arc, RwLock};
 
+use crate::cipher::{Cipher, SharedCipher};
 use crate::{Message, MAX_MESSAGE_SIZE};
+
+type StreamState<R> = (Message, BufReader<R>, SharedCipher);
 
 /// A reader for SMC messages.
 ///
@@ -24,8 +28,9 @@ use crate::{Message, MAX_MESSAGE_SIZE};
 /// }
 /// ```
 pub struct Reader<R> {
-    future: Pin<Box<dyn Future<Output = Result<(Message, BufReader<R>), Error>> + Send>>,
+    future: Pin<Box<dyn Future<Output = Result<StreamState<R>, Error>> + Send>>,
     finished: bool,
+    encrypted: fn(&Message, &mut Cipher),
 }
 
 impl<R> Reader<R>
@@ -34,8 +39,17 @@ where
 {
     /// Create a new message reader from any [`futures::io::AsyncRead`].
     pub fn new(reader: R) -> Self {
+        Self::encrypted(reader, Arc::new(RwLock::new(Cipher::empty())), |_, _| {})
+    }
+
+    pub fn encrypted(
+        reader: R,
+        cipher: SharedCipher,
+        encrypted: fn(&Message, &mut Cipher),
+    ) -> Self {
         Self {
-            future: decoder(BufReader::new(reader)).boxed(),
+            encrypted,
+            future: decoder(BufReader::new(reader), cipher).boxed(),
             finished: false,
         }
     }
@@ -58,9 +72,13 @@ where
             Poll::Pending => Poll::Pending,
             Poll::Ready(result) => {
                 match result {
-                    Ok((message, reader)) => {
+                    Ok((message, reader, cipher)) => {
+                        (self.encrypted)(
+                            &message,
+                            &mut cipher.write().expect("could not aquire lock"),
+                        );
                         // Re-init the future.
-                        self.future = decoder(reader).boxed();
+                        self.future = decoder(reader, cipher).boxed();
                         Poll::Ready(Some(Ok(message)))
                     }
                     Err(error) => {
@@ -76,7 +94,10 @@ where
 /// Decode a single message from a BufReader.
 ///
 /// Returns either an error or both the message and the BufReader.
-pub async fn decoder<'a, R>(mut reader: BufReader<R>) -> Result<(Message, BufReader<R>), Error>
+pub async fn decoder<'a, R>(
+    mut reader: BufReader<R>,
+    cipher: SharedCipher,
+) -> Result<StreamState<R>, Error>
 where
     R: AsyncRead + Send + Unpin + 'static,
 {
@@ -86,6 +107,10 @@ where
     // Read initial varint (message length).
     loop {
         reader.read_exact(&mut headerbuf).await?;
+        cipher
+            .write()
+            .expect("could not aquire lock")
+            .try_apply(&mut headerbuf);
         let byte = headerbuf[0];
         varint = varint + (byte as u64 & 127) * factor;
         if byte < 128 {
@@ -100,6 +125,10 @@ where
     // Read main message.
     let mut messagebuf = vec![0u8; varint as usize];
     reader.read_exact(&mut messagebuf).await?;
+    cipher
+        .write()
+        .expect("could not aquire lock")
+        .try_apply(&mut messagebuf);
     let message = Message::from_buf(&messagebuf)?;
-    Ok((message, reader))
+    Ok((message, reader, cipher))
 }
