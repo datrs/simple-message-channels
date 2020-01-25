@@ -43,12 +43,12 @@ impl Message {
 pub fn decode_message(buf: &[u8]) -> Result<Message, Error> {
     let mut header = 0 as u64;
     let headerlen = varinteger::decode(buf, &mut header);
-    let msg = &buf[headerlen..];
+    let msg = &buf[headerlen..].to_vec();
     let channel = header >> 4;
-    let typ = header & 0b1111;
+    let typ = (header & 0b1111) as u8;
     let message = Message {
-        channel: channel,
-        typ: typ as u8,
+        channel,
+        typ,
         message: msg.to_vec(),
     };
     Ok(message)
@@ -71,6 +71,6 @@ pub fn encode_message(msg: &Message) -> Result<Vec<u8>, Error> {
     varinteger::encode(len_body as u64, &mut buf[..len_prefix]);
     let end = len_prefix + len_header;
     varinteger::encode(header, &mut buf[len_prefix..end]);
-    &mut buf[end..].copy_from_slice(&msg.message);
+    buf[end..].copy_from_slice(&msg.message);
     Ok(buf)
 }

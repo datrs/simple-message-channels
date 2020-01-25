@@ -112,14 +112,14 @@ where
             .expect("could not aquire lock")
             .try_apply(&mut headerbuf);
         let byte = headerbuf[0];
-        varint = varint + (byte as u64 & 127) * factor;
+        varint += (byte as u64 & 127) * factor;
         if byte < 128 {
             break;
         }
         if varint > MAX_MESSAGE_SIZE {
             return Err(Error::new(ErrorKind::InvalidInput, "Message too long"));
         }
-        factor = factor * 128;
+        factor *= 128;
     }
 
     // Read main message.
