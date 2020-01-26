@@ -87,6 +87,12 @@ where
     loop {
         reader.read_exact(&mut headerbuf).await?;
         let byte = headerbuf[0];
+
+        // Skip empty bytes (may be keepalive pings).
+        if byte == 0 {
+            continue;
+        }
+
         varint = varint + (byte as u64 & 127) * factor;
         if byte < 128 {
             break;

@@ -41,6 +41,12 @@ impl Message {
 /// Note: `buf` has to have a valid length, and the length prefixed
 /// has to be removed already.
 pub fn decode_message(buf: &[u8]) -> Result<Message, Error> {
+    if buf.len() == 0 {
+        return Err(Error::new(
+            ErrorKind::UnexpectedEof,
+            "received empty message",
+        ));
+    }
     let mut header = 0 as u64;
     let headerlen = varinteger::decode(buf, &mut header);
     let msg = &buf[headerlen..];
