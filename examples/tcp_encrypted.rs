@@ -138,7 +138,7 @@ fn create_from_stream(
     Arc<RwLock<Cipher>>,
 ) {
     let stream = CloneableStream(Arc::new(tcp_stream));
-    let cipher = Arc::new(RwLock::new(Cipher::new(KEY)));
+    let cipher = Arc::new(RwLock::new(Cipher::new(KEY.to_vec())));
     let reader = Reader::encrypted(stream.clone(), cipher.clone(), |message, cypher| {
         if message.typ == 0 {
             println!("Received message nonce: {:?}", message);

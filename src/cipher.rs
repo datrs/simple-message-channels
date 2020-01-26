@@ -4,19 +4,18 @@ use std::sync::{Arc, RwLock};
 
 pub(crate) type SharedCipher = Arc<RwLock<Cipher>>;
 
-type Key = [u8; 32];
 pub struct Cipher {
-    key: Key,
+    key: Vec<u8>,
     cipher: Option<XSalsa20>,
 }
 
 impl Cipher {
-    pub fn new(key: Key) -> Self {
+    pub fn new(key: Vec<u8>) -> Self {
         Self { key, cipher: None }
     }
 
     pub fn empty() -> Self {
-        Self::new([0; 32])
+        Self::new(vec![0; 32])
     }
 
     pub fn initialize(&mut self, nonce: &[u8]) {
