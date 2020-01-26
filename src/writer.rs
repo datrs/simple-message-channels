@@ -1,12 +1,12 @@
-use std::io::Error;
-use futures::io::{AsyncWrite,AsyncWriteExt,BufWriter};
 use crate::Message;
+use futures::io::{AsyncWrite, AsyncWriteExt};
+use std::io::Error;
 
 /// A writer for SMC messages.
 ///
 /// Consumes an [`futures::io::AsyncWrite`] to which messages will be written.
 pub struct Writer<W> {
-    writer: BufWriter<W>,
+    writer: W,
 }
 
 impl<W> Writer<W>
@@ -15,9 +15,7 @@ where
 {
     /// Create a new message writer.
     pub fn new(writer: W) -> Self {
-        Self {
-            writer: BufWriter::new(writer),
-        }
+        Self { writer }
     }
 
     /// Send a message.

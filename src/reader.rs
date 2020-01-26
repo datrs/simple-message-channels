@@ -1,8 +1,8 @@
-use std::io::{Error, ErrorKind};
-use futures::task::{Context, Poll};
 use futures::future::{Future, FutureExt};
-use futures::io::{AsyncRead, AsyncReadExt, BufReader};
+use futures::io::{AsyncRead, AsyncReadExt};
 use futures::stream::Stream;
+use futures::task::{Context, Poll};
+use std::io::{Error, ErrorKind};
 use std::pin::Pin;
 
 use crate::{Message, MAX_MESSAGE_SIZE};
@@ -24,7 +24,7 @@ use crate::{Message, MAX_MESSAGE_SIZE};
 /// }
 /// ```
 pub struct Reader<R> {
-    future: Pin<Box<dyn Future<Output = Result<(Message, BufReader<R>), Error>> + Send>>,
+    future: Pin<Box<dyn Future<Output = Result<(Message, R), Error>> + Send>>,
     finished: bool,
 }
 
@@ -35,13 +35,13 @@ where
     /// Create a new message reader from any [`futures::io::AsyncRead`].
     pub fn new(reader: R) -> Self {
         Self {
-            future: decoder(BufReader::new(reader)).boxed(),
+            future: decoder(reader).boxed(),
             finished: false,
         }
     }
 }
 
-// Proxy to the internal BufReader and decode messages.
+// Proxy to the internal Reader instance and decode messages.
 impl<R> Stream for Reader<R>
 where
     R: AsyncRead + Send + Unpin + 'static,
@@ -73,10 +73,10 @@ where
     }
 }
 
-/// Decode a single message from a BufReader.
+/// Decode a single message from a Reader instance.
 ///
-/// Returns either an error or both the message and the BufReader.
-pub async fn decoder<'a, R>(mut reader: BufReader<R>) -> Result<(Message, BufReader<R>), Error>
+/// Returns either an error or both the message and the Reader instance.
+pub async fn decoder<'a, R>(mut reader: R) -> Result<(Message, R), Error>
 where
     R: AsyncRead + Send + Unpin + 'static,
 {
