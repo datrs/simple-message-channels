@@ -64,7 +64,7 @@ async fn tcp_server(address: String) -> Result<()> {
             match handle_incoming(stream).await {
                 Err(ref e) if e.kind() != ErrorKind::UnexpectedEof => {
                     eprintln!("connection closed from {} with error: {}", peer_addr, e);
-                },
+                }
                 Err(_) | Ok(()) => {
                     eprintln!("connection closed from {}", peer_addr);
                 }

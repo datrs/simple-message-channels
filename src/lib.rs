@@ -15,6 +15,8 @@ mod writer;
 
 pub use message::Message;
 pub use reader::Reader;
+pub use writer::send;
+pub use writer::send_batch;
 pub use writer::Writer;
 
 /// The max message size (in bytes)
